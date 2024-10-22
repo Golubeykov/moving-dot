@@ -14,27 +14,47 @@ class ViewController: UIViewController {
     let greenDot: UIView = {
         let view = UIView()
         view.backgroundColor = .green
-        view.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
         view.layer.cornerRadius = 15
+        view.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
         return view
     }()
 
+    let startButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Start", for: .normal)
+        button.addTarget(self, action: #selector(startAnimation), for: .touchUpInside)
+        return button
+    }()
+
+    let cancelButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Cancel", for: .normal)
+        button.addTarget(self, action: #selector(cancelAnimation), for: .touchUpInside)
+        return button
+    }()
+
+
     // MARK: - Properties
 
-    var isAnimating = false
-    var currentAnimation: UIViewPropertyAnimator?
+    lazy var initialDotCenter: CGPoint = .init(x: view.bounds.midX, y: 100)
+    var initialDotSize: CGSize = .init(width: 30, height: 30)
 
     // MARK: - UIViewController
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.view.backgroundColor = .white
+        view.backgroundColor = .white
+        view.addSubview(greenDot)
 
-        self.view.addSubview(greenDot)
-        greenDot.center = self.view.center
+        greenDot.center = CGPoint(x: view.bounds.midX, y: 100)
+        initialDotCenter = greenDot.center
+        initialDotSize = greenDot.bounds.size
 
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
-        self.view.addGestureRecognizer(tapGesture)
+        view.addSubview(startButton)
+        view.addSubview(cancelButton)
+
+        startButton.frame = CGRect(x: view.bounds.midX - 100, y: view.bounds.height - 100, width: 80, height: 40)
+        cancelButton.frame = CGRect(x: view.bounds.midX + 20, y: view.bounds.height - 100, width: 80, height: 40)
     }
 
 }
@@ -44,57 +64,71 @@ class ViewController: UIViewController {
 private extension ViewController {
 
     @objc 
-    func handleTap(_ sender: UITapGestureRecognizer) {
-        let tapLocation = sender.location(in: self.view)
+    func startAnimation() {
+        let positionAnimation = CAKeyframeAnimation(keyPath: "position")
+        positionAnimation.values = [
+            NSValue(cgPoint: CGPoint(x: self.view.bounds.midX, y: 100)),
+            NSValue(cgPoint: CGPoint(x: self.view.bounds.midX, y: self.view.bounds.maxY - 150))
+        ]
+        positionAnimation.keyTimes = [0, 1]
+        positionAnimation.duration = 1.0
 
-        if let animation = currentAnimation, animation.isRunning {
-            animation.stopAnimation(true)
-            greenDot.layer.removeAllAnimations()
+        let sizeAnimation = CAKeyframeAnimation(keyPath: "transform.scale")
+        sizeAnimation.values = [1.0, 1.5, 1.0]
+        sizeAnimation.keyTimes = [0, 0.5, 1.0]
+        sizeAnimation.duration = 1.0
+
+        let animationGroup = CAAnimationGroup()
+        animationGroup.animations = [positionAnimation, sizeAnimation]
+        animationGroup.duration = 1.0
+
+        greenDot.layer.add(animationGroup, forKey: "moveAndResize")
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            self.greenDot.center = CGPoint(x: self.view.bounds.midX, y: self.view.bounds.maxY - 150)
+            self.greenDot.transform = .identity
         }
-        animateDotPositionWithKeyFrames(to: tapLocation)
-
-        // Добавить на движение изменение scale точки (ув-ся на 150% и в конце вернуться в 100%)
-        // Менять цвет (менять % в зависимости от прогресса)
-        // Все должно быть одновременно
-        // При прерывании возвращаемся в исходный размер, но плавно
-        // Кнопка cancel, пока без прерывания
-
-        // Если получится, то перегнать все это в группы анимации, CABasicAnimation (CAAnimationGroup). Есть еще какой-то делегат.
-        // CATransaction (это аналоги completion)
-
-        // Посмотри LayerAnimator в BurgerKing (но лучше погуглить на чистой анимации)
+        CATransaction.commit()
     }
 
-    func animateDotPosition(to position: CGPoint) {
-        currentAnimation = UIViewPropertyAnimator(duration: 1.0, curve: .easeInOut, animations: {
-            self.greenDot.center = position
-            self.greenDot.frame.size = .init(width: 30, height: 30)
-        })
-        currentAnimation?.startAnimation()
-    }
+    @objc
+    func cancelAnimation() {
+        let currentScale = greenDot.layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat ?? 1.0
+        let currentPosition = greenDot.layer.presentation()?.position ?? initialDotCenter
 
-    // Починить прерывание в keyframe (почему так, если оно не работает) - DONE
-    func animateDotPositionWithKeyFrames(to position: CGPoint) {
-        stopAnimationAndMoveDot()
-
-        let animation = CAKeyframeAnimation(keyPath: "position")
-        animation.duration = 1.0
-        
-        let path = UIBezierPath()
-        path.move(to: greenDot.center)
-        path.addLine(to: position)
-
-        animation.path = path.cgPath
-        greenDot.layer.add(animation, forKey: "moveDot")
-        greenDot.center = position
-    }
-
-    func stopAnimationAndMoveDot() {
-        if let presentationLayer = greenDot.layer.presentation() {
-            greenDot.layer.removeAllAnimations()
-            greenDot.center = presentationLayer.position
+        let intermediateScaleAnimation = CABasicAnimation(keyPath: "transform.scale")
+        if currentScale < 1.5 {
+            intermediateScaleAnimation.fromValue = currentScale
+            intermediateScaleAnimation.toValue = 1.5
+            intermediateScaleAnimation.duration = 0.5
+        } else {
+            intermediateScaleAnimation.duration = 0.0
         }
-    }
 
+        let sizeResetAnimation = CABasicAnimation(keyPath: "transform.scale")
+        sizeResetAnimation.fromValue = 1.5
+        sizeResetAnimation.toValue = 1.0
+        sizeResetAnimation.beginTime = intermediateScaleAnimation.duration
+        sizeResetAnimation.duration = 0.5
+
+        let positionResetAnimation = CABasicAnimation(keyPath: "position")
+        positionResetAnimation.fromValue = NSValue(cgPoint: currentPosition)
+        positionResetAnimation.toValue = NSValue(cgPoint: initialDotCenter)
+        positionResetAnimation.duration = 1.0
+
+        let animationGroup = CAAnimationGroup()
+        animationGroup.animations = [intermediateScaleAnimation, sizeResetAnimation, positionResetAnimation]
+        animationGroup.duration = intermediateScaleAnimation.duration + sizeResetAnimation.duration
+
+        greenDot.layer.add(animationGroup, forKey: "resetSizeAndPosition")
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            self.greenDot.transform = .identity
+            self.greenDot.center = self.initialDotCenter
+        }
+        CATransaction.commit()
+    }
+    
 }
-
