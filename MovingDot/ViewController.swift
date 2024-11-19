@@ -7,11 +7,11 @@
 
 import UIKit
 
-class ViewController: UIViewController {
+final class ViewController: UIViewController {
 
     // MARK: - Subviews
 
-    let movingDot: UIView = {
+    private let movingDot: UIView = {
         let view = UIView()
         view.backgroundColor = .green
         view.layer.cornerRadius = 15
@@ -19,14 +19,14 @@ class ViewController: UIViewController {
         return view
     }()
 
-    let startButton: UIButton = {
+    private lazy var startButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Start", for: .normal)
         button.addTarget(self, action: #selector(startAnimation), for: .touchUpInside)
         return button
     }()
 
-    let cancelButton: UIButton = {
+    private lazy var cancelButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Cancel", for: .normal)
         button.addTarget(self, action: #selector(cancelAnimation), for: .touchUpInside)
@@ -36,25 +36,22 @@ class ViewController: UIViewController {
 
     // MARK: - Properties
 
-    let initialDotY: CGFloat = 100
-    lazy var finalDotY: CGFloat = 700
-    lazy var initialDotCenter: CGPoint = .init(x: view.bounds.midX, y: initialDotY)
-    var initialDotSize: CGSize = .init(width: 30, height: 30)
+    private let initialDotY: CGFloat = 100
+    private let finalDotY: CGFloat = 700
+    private lazy var initialDotCenter: CGPoint = .init(x: view.bounds.midX, y: initialDotY)
+    private let initialDotSize: CGSize = .init(width: 30, height: 30)
 
     // MARK: - UIViewController
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
-        view.addSubview(movingDot)
 
+        view.addSubview(movingDot)
         movingDot.center = initialDotCenter
-        initialDotCenter = movingDot.center
-        initialDotSize = movingDot.bounds.size
 
         view.addSubview(startButton)
         view.addSubview(cancelButton)
-
         startButton.frame = CGRect(x: view.bounds.midX - 100, y: view.bounds.height - 100, width: 80, height: 40)
         cancelButton.frame = CGRect(x: view.bounds.midX + 20, y: view.bounds.height - 100, width: 80, height: 40)
     }
@@ -109,11 +106,11 @@ private extension ViewController {
         let currentColor = movingDot.layer.presentation()?.value(forKeyPath: "backgroundColor") ?? UIColor.green.cgColor
 
         let intermediateScaleAnimation = CABasicAnimation(keyPath: "transform.scale")
-        let isPassedHalfOfWay: Bool = currentScale < 1.5 && currentPosition.y - 100 > (finalDotY - initialDotY) / 2
-        let passedPercentage: CGFloat = (currentPosition.y - 100) / (finalDotY - initialDotY)
-        if
-            isPassedHalfOfWay
-        {
+        let relativeYPosition = currentPosition.y - 100
+        let isPassedHalfOfWay: Bool = relativeYPosition > (finalDotY - initialDotY) / 2
+        let passedPercentage: CGFloat = relativeYPosition / (finalDotY - initialDotY)
+
+        if isPassedHalfOfWay {
             intermediateScaleAnimation.fromValue = currentScale
             intermediateScaleAnimation.toValue = 1.5
             intermediateScaleAnimation.duration = passedPercentage - 0.5
@@ -131,16 +128,16 @@ private extension ViewController {
         let positionResetAnimation = CABasicAnimation(keyPath: "position")
         positionResetAnimation.fromValue = NSValue(cgPoint: currentPosition)
         positionResetAnimation.toValue = NSValue(cgPoint: initialDotCenter)
-        positionResetAnimation.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
+        positionResetAnimation.duration = passedPercentage
 
         let colorResetAnimation = CABasicAnimation(keyPath: "backgroundColor")
         colorResetAnimation.fromValue = currentColor
         colorResetAnimation.toValue = UIColor.green.cgColor
-        colorResetAnimation.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
+        colorResetAnimation.duration = passedPercentage
 
         let animationGroup = CAAnimationGroup()
         animationGroup.animations = [intermediateScaleAnimation, sizeResetAnimation, positionResetAnimation, colorResetAnimation]
-        animationGroup.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
+        animationGroup.duration = passedPercentage
 
         movingDot.layer.add(animationGroup, forKey: "resetAnimations")
 
