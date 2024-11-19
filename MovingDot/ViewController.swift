@@ -36,7 +36,9 @@ class ViewController: UIViewController {
 
     // MARK: - Properties
 
-    lazy var initialDotCenter: CGPoint = .init(x: view.bounds.midX, y: 100)
+    let initialDotY: CGFloat = 100
+    lazy var finalDotY: CGFloat = 700
+    lazy var initialDotCenter: CGPoint = .init(x: view.bounds.midX, y: initialDotY)
     var initialDotSize: CGSize = .init(width: 30, height: 30)
 
     // MARK: - UIViewController
@@ -46,7 +48,7 @@ class ViewController: UIViewController {
         view.backgroundColor = .white
         view.addSubview(greenDot)
 
-        greenDot.center = CGPoint(x: view.bounds.midX, y: 100)
+        greenDot.center = initialDotCenter
         initialDotCenter = greenDot.center
         initialDotSize = greenDot.bounds.size
 
@@ -67,8 +69,8 @@ private extension ViewController {
     func startAnimation() {
         let positionAnimation = CAKeyframeAnimation(keyPath: "position")
         positionAnimation.values = [
-            NSValue(cgPoint: CGPoint(x: self.view.bounds.midX, y: 100)),
-            NSValue(cgPoint: CGPoint(x: self.view.bounds.midX, y: self.view.bounds.maxY - 150))
+            NSValue(cgPoint: CGPoint(x: self.view.bounds.midX, y: initialDotY)),
+            NSValue(cgPoint: CGPoint(x: self.view.bounds.midX, y: finalDotY))
         ]
         positionAnimation.keyTimes = [0, 1]
         positionAnimation.duration = 1.0
@@ -86,7 +88,7 @@ private extension ViewController {
 
         CATransaction.begin()
         CATransaction.setCompletionBlock {
-            self.greenDot.center = CGPoint(x: self.view.bounds.midX, y: self.view.bounds.maxY - 150)
+            self.greenDot.center = CGPoint(x: self.view.bounds.midX, y: self.finalDotY)
             self.greenDot.transform = .identity
         }
         CATransaction.commit()
@@ -94,32 +96,39 @@ private extension ViewController {
 
     @objc
     func cancelAnimation() {
+        greenDot.layer.removeAllAnimations()
+
         let currentScale = greenDot.layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat ?? 1.0
         let currentPosition = greenDot.layer.presentation()?.position ?? initialDotCenter
 
         let intermediateScaleAnimation = CABasicAnimation(keyPath: "transform.scale")
-        if currentScale < 1.5 {
+        let isPassedHalfOfWay: Bool = currentScale < 1.5 && currentPosition.y - 100 > (finalDotY - initialDotY) / 2
+        let passedPercentage: CGFloat = (currentPosition.y - 100) / (finalDotY - initialDotY)
+        if
+            isPassedHalfOfWay
+        {
             intermediateScaleAnimation.fromValue = currentScale
             intermediateScaleAnimation.toValue = 1.5
-            intermediateScaleAnimation.duration = 0.5
+            intermediateScaleAnimation.duration = passedPercentage - 0.5
+
         } else {
             intermediateScaleAnimation.duration = 0.0
         }
 
         let sizeResetAnimation = CABasicAnimation(keyPath: "transform.scale")
-        sizeResetAnimation.fromValue = 1.5
+        sizeResetAnimation.fromValue = isPassedHalfOfWay ? 1.5 : currentScale
         sizeResetAnimation.toValue = 1.0
         sizeResetAnimation.beginTime = intermediateScaleAnimation.duration
-        sizeResetAnimation.duration = 0.5
+        sizeResetAnimation.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
 
         let positionResetAnimation = CABasicAnimation(keyPath: "position")
         positionResetAnimation.fromValue = NSValue(cgPoint: currentPosition)
         positionResetAnimation.toValue = NSValue(cgPoint: initialDotCenter)
-        positionResetAnimation.duration = 1.0
+        positionResetAnimation.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
 
         let animationGroup = CAAnimationGroup()
         animationGroup.animations = [intermediateScaleAnimation, sizeResetAnimation, positionResetAnimation]
-        animationGroup.duration = intermediateScaleAnimation.duration + sizeResetAnimation.duration
+        animationGroup.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
 
         greenDot.layer.add(animationGroup, forKey: "resetSizeAndPosition")
 
