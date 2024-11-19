@@ -11,7 +11,7 @@ class ViewController: UIViewController {
 
     // MARK: - Subviews
 
-    let greenDot: UIView = {
+    let movingDot: UIView = {
         let view = UIView()
         view.backgroundColor = .green
         view.layer.cornerRadius = 15
@@ -46,11 +46,11 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
-        view.addSubview(greenDot)
+        view.addSubview(movingDot)
 
-        greenDot.center = initialDotCenter
-        initialDotCenter = greenDot.center
-        initialDotSize = greenDot.bounds.size
+        movingDot.center = initialDotCenter
+        initialDotCenter = movingDot.center
+        initialDotSize = movingDot.bounds.size
 
         view.addSubview(startButton)
         view.addSubview(cancelButton)
@@ -80,26 +80,33 @@ private extension ViewController {
         sizeAnimation.keyTimes = [0, 0.5, 1.0]
         sizeAnimation.duration = 1.0
 
+        let colorAnimation = CABasicAnimation(keyPath: "backgroundColor")
+        colorAnimation.fromValue = UIColor.green.cgColor
+        colorAnimation.toValue = UIColor.blue.cgColor
+        colorAnimation.duration = 1.0
+
         let animationGroup = CAAnimationGroup()
-        animationGroup.animations = [positionAnimation, sizeAnimation]
+        animationGroup.animations = [positionAnimation, sizeAnimation, colorAnimation]
         animationGroup.duration = 1.0
 
-        greenDot.layer.add(animationGroup, forKey: "moveAndResize")
+        movingDot.layer.add(animationGroup, forKey: "moveResizeAndChangeColor")
 
         CATransaction.begin()
         CATransaction.setCompletionBlock {
-            self.greenDot.center = CGPoint(x: self.view.bounds.midX, y: self.finalDotY)
-            self.greenDot.transform = .identity
+            self.movingDot.center = CGPoint(x: self.view.bounds.midX, y: self.finalDotY)
+            self.movingDot.transform = .identity
+            self.movingDot.backgroundColor = .blue
         }
         CATransaction.commit()
     }
 
     @objc
     func cancelAnimation() {
-        greenDot.layer.removeAllAnimations()
+        movingDot.layer.removeAllAnimations()
 
-        let currentScale = greenDot.layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat ?? 1.0
-        let currentPosition = greenDot.layer.presentation()?.position ?? initialDotCenter
+        let currentScale = movingDot.layer.presentation()?.value(forKeyPath: "transform.scale") as? CGFloat ?? 1.0
+        let currentPosition = movingDot.layer.presentation()?.position ?? initialDotCenter
+        let currentColor = movingDot.layer.presentation()?.value(forKeyPath: "backgroundColor") ?? UIColor.green.cgColor
 
         let intermediateScaleAnimation = CABasicAnimation(keyPath: "transform.scale")
         let isPassedHalfOfWay: Bool = currentScale < 1.5 && currentPosition.y - 100 > (finalDotY - initialDotY) / 2
@@ -126,16 +133,22 @@ private extension ViewController {
         positionResetAnimation.toValue = NSValue(cgPoint: initialDotCenter)
         positionResetAnimation.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
 
+        let colorResetAnimation = CABasicAnimation(keyPath: "backgroundColor")
+        colorResetAnimation.fromValue = currentColor
+        colorResetAnimation.toValue = UIColor.green.cgColor
+        colorResetAnimation.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
+
         let animationGroup = CAAnimationGroup()
-        animationGroup.animations = [intermediateScaleAnimation, sizeResetAnimation, positionResetAnimation]
+        animationGroup.animations = [intermediateScaleAnimation, sizeResetAnimation, positionResetAnimation, colorResetAnimation]
         animationGroup.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
 
-        greenDot.layer.add(animationGroup, forKey: "resetSizeAndPosition")
+        movingDot.layer.add(animationGroup, forKey: "resetAnimations")
 
         CATransaction.begin()
         CATransaction.setCompletionBlock {
-            self.greenDot.transform = .identity
-            self.greenDot.center = self.initialDotCenter
+            self.movingDot.transform = .identity
+            self.movingDot.center = self.initialDotCenter
+            self.movingDot.backgroundColor = .green
         }
         CATransaction.commit()
     }
