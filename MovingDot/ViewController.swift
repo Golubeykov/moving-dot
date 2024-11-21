@@ -41,6 +41,8 @@ final class ViewController: UIViewController {
     private lazy var initialDotCenter: CGPoint = .init(x: view.bounds.midX, y: initialDotY)
     private let initialDotSize: CGSize = .init(width: 30, height: 30)
 
+    private let animationDuration: CGFloat = 2.0
+
     // MARK: - UIViewController
 
     override func viewDidLoad() {
@@ -70,21 +72,21 @@ private extension ViewController {
             NSValue(cgPoint: CGPoint(x: self.view.bounds.midX, y: finalDotY))
         ]
         positionAnimation.keyTimes = [0, 1]
-        positionAnimation.duration = 1.0
+        positionAnimation.duration = animationDuration
 
         let sizeAnimation = CAKeyframeAnimation(keyPath: "transform.scale")
         sizeAnimation.values = [1.0, 1.5, 1.0]
         sizeAnimation.keyTimes = [0, 0.5, 1.0]
-        sizeAnimation.duration = 1.0
+        sizeAnimation.duration = animationDuration
 
         let colorAnimation = CABasicAnimation(keyPath: "backgroundColor")
         colorAnimation.fromValue = UIColor.green.cgColor
         colorAnimation.toValue = UIColor.blue.cgColor
-        colorAnimation.duration = 1.0
+        colorAnimation.duration = animationDuration
 
         let animationGroup = CAAnimationGroup()
         animationGroup.animations = [positionAnimation, sizeAnimation, colorAnimation]
-        animationGroup.duration = 1.0
+        animationGroup.duration = animationDuration
 
         movingDot.layer.add(animationGroup, forKey: "moveResizeAndChangeColor")
 
@@ -113,7 +115,7 @@ private extension ViewController {
         if isPassedHalfOfWay {
             intermediateScaleAnimation.fromValue = currentScale
             intermediateScaleAnimation.toValue = 1.5
-            intermediateScaleAnimation.duration = passedPercentage - 0.5
+            intermediateScaleAnimation.duration = (passedPercentage - 0.5) * animationDuration
 
         } else {
             intermediateScaleAnimation.duration = 0.0
@@ -123,21 +125,21 @@ private extension ViewController {
         sizeResetAnimation.fromValue = isPassedHalfOfWay ? 1.5 : currentScale
         sizeResetAnimation.toValue = 1.0
         sizeResetAnimation.beginTime = intermediateScaleAnimation.duration
-        sizeResetAnimation.duration = isPassedHalfOfWay ? 0.5 : passedPercentage
+        sizeResetAnimation.duration = isPassedHalfOfWay ? 0.5 * animationDuration : passedPercentage * animationDuration
 
         let positionResetAnimation = CABasicAnimation(keyPath: "position")
         positionResetAnimation.fromValue = NSValue(cgPoint: currentPosition)
         positionResetAnimation.toValue = NSValue(cgPoint: initialDotCenter)
-        positionResetAnimation.duration = passedPercentage
+        positionResetAnimation.duration = passedPercentage * animationDuration
 
         let colorResetAnimation = CABasicAnimation(keyPath: "backgroundColor")
         colorResetAnimation.fromValue = currentColor
         colorResetAnimation.toValue = UIColor.green.cgColor
-        colorResetAnimation.duration = passedPercentage
+        colorResetAnimation.duration = passedPercentage * animationDuration
 
         let animationGroup = CAAnimationGroup()
         animationGroup.animations = [intermediateScaleAnimation, sizeResetAnimation, positionResetAnimation, colorResetAnimation]
-        animationGroup.duration = passedPercentage
+        animationGroup.duration = passedPercentage * animationDuration
 
         movingDot.layer.add(animationGroup, forKey: "resetAnimations")
 
